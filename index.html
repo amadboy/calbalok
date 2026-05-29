@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f97316">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BeamCalc">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>BeamCalc - Balok A Analyzer</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+
+  <!-- Tailwind CDN (will be cached by SW after first load) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts (cached after first load) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* PWA install banner */
+    #install-banner {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #1e293b;
+      border-top: 1px solid #f97316;
+      padding: 12px 16px;
+      z-index: 9999;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    #install-banner.show { display: flex; }
+
+    /* Offline indicator */
+    #offline-badge {
+      display: none;
+      position: fixed;
+      top: 8px; right: 8px;
+      background: #ef4444;
+      color: white;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 3px 8px;
+      border-radius: 999px;
+      z-index: 9998;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+
+  <!-- Offline indicator -->
+  <div id="offline-badge">OFFLINE</div>
+
+  <!-- PWA Install Banner -->
+  <div id="install-banner">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="./icon-192.png" style="width:36px;height:36px;border-radius:8px;" alt="icon">
+      <div>
+        <div style="color:white;font-weight:bold;font-size:13px;">Install BeamCalc</div>
+        <div style="color:#94a3b8;font-size:11px;">Pasang ke layar utama Android</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="btn-install" style="background:#f97316;color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:bold;font-size:13px;cursor:pointer;">Install</button>
+      <button id="btn-dismiss" style="background:#334155;color:#94a3b8;border:none;padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;">✕</button>
+    </div>
+  </div>
+
+  <!-- header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 bg-orange-500 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
+        <span class="font-mono text-white text-lg font-bold">B</span>
+      </div>
+      <div>
+        <h1 class="text-md font-bold tracking-tight text-white uppercase font-mono">BeamCalc - Offline Version</h1>
+        <p class="text-[10px] text-slate-400">Komputasi & Desain Penulangan Balok Lapangan & Tumpuan Mandiri</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="badge-safe" class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/30">
+        BALOK AMAN
+      </span>
+      <span class="text-[10px] mono text-slate-400 bg-slate-800 py-1 px-2.5 rounded border border-slate-700">OFFLINE SHEET</span>
+    </div>
+  </header>
+
+  <div class="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden">
+    <!-- aside -->
+    <aside class="w-full md:w-80 bg-slate-900/40 border-r border-slate-800 p-5 flex flex-col gap-4 overflow-y-auto shrink-0">
+      <div class="text-[11px] font-bold text-orange-400 uppercase tracking-widest font-mono">Input Parameter Balok</div>
+      <div class="space-y-4 text-xs">
+        <!-- Span Slider -->
+        <div class="space-y-1">
+          <div class="flex justify-between font-mono">
+            <span class="text-slate-400">Bentang Bersih (L)</span>
+            <span id="label-span" class="font-bold text-white">5.00 m</span>
+          </div>
+          <input type="range" id="input-span" min="2.0" max="10.0" step="0.5" class="w-full accent-orange-500 cursor-pointer h-1 bg-slate-800 rounded-lg" />
+        </div>
+
+        <!-- Dimensi -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-1">Lebar b (cm)</label>
+            <input type="number" id="input-width" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs font-bold text-white outline-none focus:border-orange-500" />
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-1">Tinggi h (cm)</label>
+            <input type="number" id="input-height" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs font-bold text-white outline-none focus:border-orange-500" />
+          </div>
+        </div>
+
+        <!-- Material Properties -->
+        <div class="space-y-3 pt-2 border-t border-slate-800/60">
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-1">Jenis Baja Utama</label>
+            <select id="input-rebarType" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-orange-500">
+              <option value="polos">Besi Polos / BJTP (Keras Lentur ø-12)</option>
+              <option value="ulir">Besi Ulir / BJTS (Profil Ulir deform D-13+)</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-slate-400 block mb-1">Beton f'c (MPa)</label>
+              <input type="number" id="input-fc" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs font-bold text-white outline-none focus:border-orange-500" />
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-400 block mb-1">Baja f_y (MPa)</label>
+              <input type="number" id="input-fyMain" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs font-bold text-white outline-none focus:border-orange-500" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Loads and Walls -->
+        <div class="space-y-3 pt-2 border-t border-slate-800/60 font-mono">
+          <div class="flex items-center justify-between pb-1">
+            <span class="text-[10px] text-slate-400">Berat Sendiri Balok</span>
+            <input type="checkbox" id="input-isSelfWeight" class="w-4 h-4 accent-orange-500 cursor-pointer" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[9px] text-slate-400 block mb-1">Tinggi Dinding (m)</label>
+              <input type="number" step="0.1" id="input-brickWallHeight" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-xs text-white outline-none" />
+            </div>
+            <div>
+              <label class="text-[9px] text-slate-400 block mb-1">Mati Tambahan (kN/m)</label>
+              <input type="number" step="0.1" id="input-customDeadLoad" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-xs text-white outline-none" />
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+              <span>Beban qL (kN/m)</span>
+              <span id="label-liveLoad">1.00 kN/m</span>
+            </div>
+            <input type="range" id="input-liveLoad" min="0" max="12.0" step="0.5" class="w-full accent-orange-500 cursor-pointer h-1 bg-slate-800 rounded-lg" />
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-1">Kondisi Tumpuan</label>
+            <select id="input-supportCondition" class="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-xs text-white outline-none">
+              <option value="sederhana">Kedua Ujung Sederhana (Simple Beam)</option>
+              <option value="menerus_ujung">Menerus di Satu Ujung</option>
+              <option value="menerus_tengah">Menerus di Kedua Ujung (Model Kontinu)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Reinforcement Configuration -->
+        <div class="space-y-4 pt-3 border-t border-slate-800/60">
+          <!-- Tumpuan Box -->
+          <div class="p-3 bg-slate-900/60 rounded border border-slate-800">
+            <div class="text-[10px] font-bold text-orange-400 uppercase mb-2 font-mono">Daerah Tumpuan (Support)</div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-[8px] text-slate-400 block">Tulangan Atas (n)</label>
+                <input type="number" id="input-nTopSupp" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-[8px] text-slate-400 block">Dimensi d (mm)</label>
+                <input type="number" id="input-dTopSupp" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-[8px] text-slate-400 block">Tulangan Bawah (n)</label>
+                <input type="number" id="input-nBotSupp" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-[8px] text-slate-400 block">Dimensi d (mm)</label>
+                <input type="number" id="input-dBotSupp" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/50">
+              <div>
+                <label class="text-[8px] text-slate-400 block">Sengkang (mm)</label>
+                <input type="number" id="input-dSengkangSupp" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-[8px] text-slate-400 block">Jarak s (cm)</label>
+                <input type="number" id="input-sSengkangSupp" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Lapangan Box -->
+          <div class="p-3 bg-slate-900/60 rounded border border-slate-800">
+            <div class="text-[10px] font-bold text-blue-400 uppercase mb-2 font-mono">Daerah Lapangan (Mid-Span)</div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-[8px] text-slate-400 block">Tulangan Atas (n)</label>
+                <input type="number" id="input-nTopMid" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-[8px] text-slate-400 block">Dimensi d (mm)</label>
+                <input type="number" id="input-dTopMid" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-[8px] text-slate-400 block">Tulangan Bawah (n)</label>
+                <input type="number" id="input-nBotMid" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-[8px] text-slate-400 block">Dimensi d (mm)</label>
+                <input type="number" id="input-dBotMid" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/50">
+              <div>
+                <label class="text-[8px] text-slate-400 block">Sengkang (mm)</label>
+                <input type="number" id="input-dSengkangMid" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-[8px] text-slate-400 block">Jarak s (cm)</label>
+                <input type="number" id="input-sSengkangMid" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto bg-slate-950">
+      
+      <!-- Bento metrics -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">Beban Terfaktor (qu)</div>
+          <div id="metric-qu" class="text-xl font-bold text-slate-100 mt-1 mono">0.00 kN/m</div>
+          <div id="metric-qu-desc" class="text-[9px] text-slate-500 mt-1">1.2 qD + 1.6 qL</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">Momen Maks (Mu)</div>
+          <div id="metric-mu" class="text-xl font-bold text-slate-100 mt-1 mono">0.00 kNm</div>
+          <div id="metric-mu-desc" class="text-[9px] text-slate-500 mt-1">Lentur Kritis</div>
+        </div>
+        <div id="card-bending" class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">Rasio lentur tumpuan</div>
+          <div id="metric-bending-ratio" class="text-xl font-bold text-emerald-400 mt-1 mono">0.0%</div>
+          <div id="metric-bending-status" class="text-[9px] text-slate-500 mt-1">Aman (OK)</div>
+        </div>
+        <div id="card-shear" class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">Geser Vu vs phiVn</div>
+          <div id="metric-shear-capacity" class="text-xl font-bold mt-1 mono">0.0 / 0.0 kN</div>
+          <div id="metric-shear-status" class="text-[9px] text-slate-500 mt-1">Aman (OK)</div>
+        </div>
+      </div>
+
+      <!-- Warning if plain steel -->
+      <div id="warning-plain" class="bg-amber-950/35 border border-amber-800/65 rounded-xl p-4 text-xs text-amber-200 hidden">
+        <strong class="font-mono text-amber-400">// PEMBERITAHUAN TEKNIS (SNI 2847):</strong> Besi Polos (BJTP) memiliki daya lekat beton rendah terhadap beban gempa lateral. Disarankan beralih menggunakan baja profil ulir (BJTS) deformed (D13 dsb) untuk kekuatan penulangan utama struktural balok.
+      </div>
+
+      <!-- Visualizer layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-900/40 border border-slate-800 rounded-xl p-5">
+        <div class="lg:col-span-4 flex flex-col items-center justify-center gap-4 border-b lg:border-b-0 lg:border-r border-slate-800/80 pb-4 lg:pb-0 lg:pr-5 select-none">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Penampang Potongan Balok</div>
+          <div class="flex gap-4">
+            <div class="flex flex-col items-center gap-1 bg-slate-950 p-2 border border-slate-800/80 rounded-lg">
+              <div class="text-[9px] font-bold font-mono text-orange-400">Potongan Tumpuan</div>
+              <svg id="svg-cross-supp" class="w-32 h-32"></svg>
+            </div>
+            <div class="flex flex-col items-center gap-1 bg-slate-950 p-2 border border-slate-800/80 rounded-lg">
+              <div class="text-[9px] font-bold font-mono text-blue-400">Potongan Lapangan</div>
+              <svg id="svg-cross-mid" class="w-32 h-32"></svg>
+            </div>
+          </div>
+        </div>
+        <div class="lg:col-span-8 flex flex-col gap-6 justify-center">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center">
+            <div class="text-[9px] font-bold font-mono text-slate-400 uppercase tracking-widest mb-2">Profil Penulangan Memanjang (Longitudinal View)</div>
+            <svg id="svg-long" class="w-full h-28 max-w-lg"></svg>
+          </div>
+          <div class="grid grid-cols-2 gap-4 bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <div class="flex flex-col items-center">
+              <span class="text-[9px] font-bold font-mono text-slate-400 mb-1">Diagram Momen M_u</span>
+              <svg id="svg-bmd" class="w-full h-24 max-w-xs"></svg>
+            </div>
+            <div class="flex flex-col items-center">
+              <span class="text-[9px] font-bold font-mono text-slate-400 mb-1">Diagram Gaya Geser V_u</span>
+              <svg id="svg-sfd" class="w-full h-24 max-w-xs"></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Math formulas panel -->
+      <div id="math-panel" class="bg-slate-900/60 border border-slate-800 rounded-xl p-6 font-mono text-xs space-y-4">
+        <h3 class="text-sm font-bold text-orange-400 border-b border-slate-800 pb-2 uppercase tracking-wide flex items-center gap-2">
+          <span>⚙️</span> Detail Analisis Pembebanan Dan Perhitungan (SNI 2847)
+        </h3>
+        <div id="math-content" class="space-y-4 text-slate-300 leading-relaxed text-[11px]"></div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="bg-slate-900 border-t border-slate-800 px-6 py-3 flex flex-col sm:flex-row items-center justify-between font-mono text-[9px] text-slate-500 gap-2 shrink-0" style="padding-bottom: env(safe-area-inset-bottom, 12px);">
+    <div class="flex gap-4">
+      <span>Consolidated calculations under physical laws & concrete parameters</span>
+    </div>
+    <span>Platform Ekspor Mandiri - BeamCalc 2026.</span>
+  </footer>
+
+  <script>
+    // ─── PWA: Register Service Worker ───────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.log('SW failed:', err));
+      });
+    }
+
+    // ─── PWA: Install Prompt ─────────────────────────────────────────────────
+    let deferredPrompt = null;
+    const banner = document.getElementById('install-banner');
+    const btnInstall = document.getElementById('btn-install');
+    const btnDismiss = document.getElementById('btn-dismiss');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      banner.classList.add('show');
+    });
+
+    btnInstall.addEventListener('click', () => {
+      banner.classList.remove('show');
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+      }
+    });
+
+    btnDismiss.addEventListener('click', () => {
+      banner.classList.remove('show');
+    });
+
+    window.addEventListener('appinstalled', () => {
+      banner.classList.remove('show');
+      deferredPrompt = null;
+    });
+
+    // ─── Offline indicator ───────────────────────────────────────────────────
+    const offlineBadge = document.getElementById('offline-badge');
+    function updateOnlineStatus() {
+      offlineBadge.style.display = navigator.onLine ? 'none' : 'block';
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    // ─── App State ───────────────────────────────────────────────────────────
+    const state = {
+      span: 5, width: 20, height: 35, fc: 20, fyMain: 240,
+      isSelfWeightIncluded: true, brickWallHeight: 0.6,
+      customDeadLoad: 0, liveLoad: 1, supportCondition: "sederhana",
+      nTopSupport: 3, dTopSupport: 12, nBottomSupport: 2, dBottomSupport: 12,
+      dStirrupSupport: 8, sStirrupSupport: 10,
+      nTopMid: 2, dTopMid: 12, nBottomMid: 3, dBottomMid: 12,
+      dStirrupMid: 8, sStirrupMid: 15, rebarType: "polos"
+    };
+
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById('input-span').value = state.span;
+      document.getElementById('input-width').value = state.width;
+      document.getElementById('input-height').value = state.height;
+      document.getElementById('input-rebarType').value = state.rebarType;
+      document.getElementById('input-fc').value = state.fc;
+      document.getElementById('input-fyMain').value = state.fyMain;
+      document.getElementById('input-isSelfWeight').checked = state.isSelfWeightIncluded;
+      document.getElementById('input-brickWallHeight').value = state.brickWallHeight;
+      document.getElementById('input-customDeadLoad').value = state.customDeadLoad;
+      document.getElementById('input-liveLoad').value = state.liveLoad;
+      document.getElementById('input-supportCondition').value = state.supportCondition;
+      document.getElementById('input-nTopSupp').value = state.nTopSupport;
+      document.getElementById('input-dTopSupp').value = state.dTopSupport;
+      document.getElementById('input-nBotSupp').value = state.nBottomSupport;
+      document.getElementById('input-dBotSupp').value = state.dBottomSupport;
+      document.getElementById('input-dSengkangSupp').value = state.dStirrupSupport;
+      document.getElementById('input-sSengkangSupp').value = state.sStirrupSupport;
+      document.getElementById('input-nTopMid').value = state.nTopMid;
+      document.getElementById('input-dTopMid').value = state.dTopMid;
+      document.getElementById('input-nBotMid').value = state.nBottomMid;
+      document.getElementById('input-dBotMid').value = state.dBottomMid;
+      document.getElementById('input-dSengkangMid').value = state.dStirrupMid;
+      document.getElementById('input-sSengkangMid').value = state.sStirrupMid;
+
+      document.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', recalculate);
+        el.addEventListener('change', recalculate);
+      });
+      recalculate();
+    });
+
+    function recalculate() {
+      var span = parseFloat(document.getElementById('input-span').value);
+      var width = Math.max(10, parseInt(document.getElementById('input-width').value) || 10);
+      var height = Math.max(15, parseInt(document.getElementById('input-height').value) || 15);
+      var rebarType = document.getElementById('input-rebarType').value;
+      var fc = Math.max(10, parseInt(document.getElementById('input-fc').value) || 10);
+      var fyMain = Math.max(100, parseInt(document.getElementById('input-fyMain').value) || 100);
+      var isSelfWeight = document.getElementById('input-isSelfWeight').checked;
+      var brickWallHeight = parseFloat(document.getElementById('input-brickWallHeight').value) || 0;
+      var customDeadLoad = parseFloat(document.getElementById('input-customDeadLoad').value) || 0;
+      var liveLoad = parseFloat(document.getElementById('input-liveLoad').value) || 0;
+      var supportCondition = document.getElementById('input-supportCondition').value;
+      var nTopSupp = Math.max(1, parseInt(document.getElementById('input-nTopSupp').value) || 1);
+      var dTopSupp = Math.max(6, parseInt(document.getElementById('input-dTopSupp').value) || 6);
+      var nBotSupp = Math.max(1, parseInt(document.getElementById('input-nBotSupp').value) || 1);
+      var dBotSupp = Math.max(6, parseInt(document.getElementById('input-dBotSupp').value) || 6);
+      var dSengkangSupp = Math.max(4, parseInt(document.getElementById('input-dSengkangSupp').value) || 4);
+      var sSengkangSupp = Math.max(5, parseInt(document.getElementById('input-sSengkangSupp').value) || 5);
+      var nTopMid = Math.max(1, parseInt(document.getElementById('input-nTopMid').value) || 1);
+      var dTopMid = Math.max(6, parseInt(document.getElementById('input-dTopMid').value) || 6);
+      var nBotMid = Math.max(1, parseInt(document.getElementById('input-nBotMid').value) || 1);
+      var dBotMid = Math.max(6, parseInt(document.getElementById('input-dBotMid').value) || 6);
+      var dSengkangMid = Math.max(4, parseInt(document.getElementById('input-dSengkangMid').value) || 4);
+      var sSengkangMid = Math.max(5, parseInt(document.getElementById('input-sSengkangMid').value) || 5);
+
+      document.getElementById('label-span').innerText = span.toFixed(2) + ' m';
+      document.getElementById('label-liveLoad').innerText = liveLoad.toFixed(2) + ' kN/m';
+
+      if (rebarType === 'polos') {
+        document.getElementById('warning-plain').classList.remove('hidden');
+      } else {
+        document.getElementById('warning-plain').classList.add('hidden');
+      }
+
+      var selfWeightKn = isSelfWeight ? (width * height * 2400 * 9.81) / 10000000 : 0;
+      var wallKn = (brickWallHeight * 250 * 9.81) / 1000;
+      var qD = selfWeightKn + wallKn + customDeadLoad;
+      var qL = liveLoad;
+      var qu = 1.2 * qD + 1.6 * qL;
+
+      var muSupp = 0, muMid = 0, vu = 0;
+      if (supportCondition === 'sederhana') {
+        muMid = (1/8) * qu * span * span;
+        muSupp = (1/24) * qu * span * span;
+        vu = 0.5 * qu * span;
+      } else if (supportCondition === 'menerus_ujung') {
+        muMid = (1/14) * qu * span * span;
+        muSupp = (1/10) * qu * span * span;
+        vu = 0.575 * qu * span;
+      } else {
+        muMid = (1/16) * qu * span * span;
+        muSupp = (1/11) * qu * span * span;
+        vu = 0.5 * qu * span;
+      }
+
+      var AsTopSupp = nTopSupp * Math.PI * 0.25 * dTopSupp * dTopSupp;
+      var AsBotSupp = nBotSupp * Math.PI * 0.25 * dBotSupp * dBotSupp;
+      var AsBotMid = nBotMid * Math.PI * 0.25 * dBotMid * dBotMid;
+
+      var cover = 40;
+      var dSupport = (height * 10) - (cover + dSengkangSupp + (Math.max(dTopSupp, dBotSupp) / 2));
+      var dMid = (height * 10) - (cover + dSengkangMid + (Math.max(dTopMid, dBotMid) / 2));
+
+      var aTopSupp = (AsTopSupp * fyMain) / (0.85 * fc * width * 10);
+      var MnTopSupp = AsTopSupp * fyMain * (dSupport - aTopSupp / 2) * 1e-6;
+      var phiMnTopSupp = 0.9 * MnTopSupp;
+
+      var aBotMid = (AsBotMid * fyMain) / (0.85 * fc * width * 10);
+      var MnBotMid = AsBotMid * fyMain * (dMid - aBotMid / 2) * 1e-6;
+      var phiMnBotMid = 0.9 * MnBotMid;
+
+      var Vc = (1/6) * Math.sqrt(fc) * (width * 10) * dSupport * 0.001;
+      var AvSupp = 2 * Math.PI * 0.25 * dSengkangSupp * dSengkangSupp;
+      var VsSupp = (AvSupp * fyMain * dSupport) / (sSengkangSupp * 10) * 0.001;
+      var phiVnSupp = 0.75 * (Vc + VsSupp);
+
+      var bendingSuppRatio = muSupp / (phiMnTopSupp || 0.1);
+      var bendingMidRatio = muMid / (phiMnBotMid || 0.1);
+      var maxBendingRatio = Math.max(bendingSuppRatio, bendingMidRatio);
+
+      var isBendingSafe = (phiMnTopSupp >= muSupp) && (phiMnBotMid >= muMid);
+      var isShearSafe = phiVnSupp >= vu;
+      var isOverallSafe = isBendingSafe && isShearSafe;
+
+      document.getElementById('metric-qu').innerText = qu.toFixed(3) + ' kN/m';
+      document.getElementById('metric-qu-desc').innerText = '1.2(' + qD.toFixed(1) + ' qD) + 1.6(' + qL.toFixed(1) + ' qL)';
+      document.getElementById('metric-mu').innerText = Math.max(muSupp, muMid).toFixed(2) + ' kNm';
+      document.getElementById('metric-mu-desc').innerText = (muSupp > muMid) ? 'Kritis Tumpuan (-)' : 'Kritis Lapangan (+)';
+
+      var bendingMetric = document.getElementById('metric-bending-ratio');
+      bendingMetric.innerText = (maxBendingRatio * 100).toFixed(1) + '%';
+      if (maxBendingRatio > 1.0) {
+        bendingMetric.className = 'text-xl font-bold text-rose-400 mt-1 mono';
+        document.getElementById('metric-bending-status').innerText = 'Overloaded!';
+        document.getElementById('card-bending').className = 'bg-rose-950/20 border border-rose-900/40 p-4 rounded-xl';
+      } else {
+        bendingMetric.className = 'text-xl font-bold text-emerald-400 mt-1 mono';
+        document.getElementById('metric-bending-status').innerText = 'Aman (phiMn > Mu)';
+        document.getElementById('card-bending').className = 'bg-slate-900 border border-slate-800 p-4 rounded-xl';
+      }
+
+      var shearMetric = document.getElementById('metric-shear-capacity');
+      shearMetric.innerText = vu.toFixed(1) + ' / ' + phiVnSupp.toFixed(1) + ' kN';
+      if (!isShearSafe) {
+        shearMetric.className = 'text-xl font-bold text-rose-400 mt-1 mono';
+        document.getElementById('metric-shear-status').innerText = 'Overloaded! Retak Geser!';
+        document.getElementById('card-shear').className = 'bg-rose-950/20 border border-rose-900/40 p-4 rounded-xl';
+      } else {
+        shearMetric.className = 'text-xl font-bold text-emerald-400 mt-1 mono';
+        document.getElementById('metric-shear-status').innerText = 'Geser Aman';
+        document.getElementById('card-shear').className = 'bg-slate-900 border border-slate-800 p-4 rounded-xl';
+      }
+
+      if (isOverallSafe) {
+        document.getElementById('badge-safe').className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/30';
+        document.getElementById('badge-safe').innerText = 'BALOK AMAN';
+      } else {
+        document.getElementById('badge-safe').className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/20 text-rose-400 text-xs font-bold rounded-full border border-rose-500/30 animate-pulse';
+        document.getElementById('badge-safe').innerText = 'BALOK TIDAK AMAN';
+      }
+
+      renderCrossSection('svg-cross-supp', nTopSupp, dTopSupp, nBotSupp, dBotSupp, dSengkangSupp, '#f97316', '#3b82f6');
+      renderCrossSection('svg-cross-mid', nTopMid, dTopMid, nBotMid, dBotMid, dSengkangMid, '#10b981', '#3b82f6');
+      renderLongitudinalSVG(span, sSengkangSupp, sSengkangMid, dSengkangSupp);
+      renderPlots(qu, span, supportCondition, muSupp, muMid, vu);
+      printMathDetail(width, height, span, qD, qL, qu, muSupp, muMid, vu, AsTopSupp, aTopSupp, phiMnTopSupp, AsBotMid, aBotMid, phiMnBotMid, fc, fyMain, Vc, phiVnSupp, Vc + VsSupp);
+    }
+
+    function renderCrossSection(svgId, nTop, dTop, nBot, dBot, dSengkang, topColor, botColor) {
+      var svg = document.getElementById(svgId);
+      var topCircles = "";
+      var spacingTop = nTop > 1 ? (80 / (nTop - 1)) : 0;
+      for (var i = 0; i < nTop; i++) {
+        var cx = nTop > 1 ? (24 + i * spacingTop) : 64;
+        topCircles += "<circle cx='" + cx + "' cy='24' r='5' fill='" + topColor + "' stroke='white' stroke-width='0.5' />";
+      }
+      var botCircles = "";
+      var spacingBot = nBot > 1 ? (80 / (nBot - 1)) : 0;
+      for (var j = 0; j < nBot; j++) {
+        var cxBot = nBot > 1 ? (24 + j * spacingBot) : 64;
+        botCircles += "<circle cx='" + cxBot + "' cy='104' r='5' fill='" + botColor + "' stroke='white' stroke-width='0.5' />";
+      }
+      svg.innerHTML = "<rect x='10' y='10' width='108' height='108' fill='#1e293b' stroke='#475569' stroke-width='2' rx='4' />" +
+        "<rect x='16' y='16' width='96' height='96' fill='none' stroke='#ef4444' stroke-width='1.5' rx='3' />" +
+        topCircles + botCircles +
+        "<text x='64' y='123' fill='#94a3b8' font-size='8' font-family='monospace' text-anchor='middle'>" + nTop + "d" + dTop + " / " + nBot + "d" + dBot + "</text>";
+    }
+
+    function renderLongitudinalSVG(span, sSupp, sMid, dSengkang) {
+      var svg = document.getElementById('svg-long');
+      var stirrupsHTML = "";
+      var countSupp = Math.ceil(40 / (sSupp || 10));
+      for (var i = 0; i < countSupp; i++) {
+        var x = 30 + (i * 12);
+        stirrupsHTML += "<line x1='" + x + "' y1='28' x2='" + x + "' y2='62' stroke='#ef4444' stroke-width='1' />";
+        var xRight = 290 - (i * 12);
+        stirrupsHTML += "<line x1='" + xRight + "' y1='28' x2='" + xRight + "' y2='62' stroke='#ef4444' stroke-width='1' />";
+      }
+      var midLeft = 30 + (countSupp * 12);
+      var midRight = 290 - (countSupp * 12);
+      var countMid = Math.ceil((midRight - midLeft) / 20);
+      for (var j = 1; j < countMid; j++) {
+        var xMid = midLeft + (j * 20);
+        if (xMid < midRight) {
+          stirrupsHTML += "<line x1='" + xMid + "' y1='28' x2='" + xMid + "' y2='62' stroke='#fca5a5' stroke-dasharray='2,2' stroke-width='1' />";
+        }
+      }
+      svg.innerHTML = "<rect x='14' y='65' width='16' height='40' fill='#334155' />" +
+        "<rect x='290' y='65' width='16' height='40' fill='#334155' />" +
+        "<rect x='30' y='25' width='260' height='40' fill='#1e293b' stroke='#334155' stroke-width='2' rx='2' />" +
+        "<line x1='32' y1='28' x2='288' y2='28' stroke='#f97316' stroke-width='2.5' stroke-linecap='round' />" +
+        "<line x1='32' y1='62' x2='288' y2='62' stroke='#3b82f6' stroke-width='2.5' stroke-linecap='round' />" +
+        stirrupsHTML +
+        "<text x='50' y='20' fill='#fca5a5' font-size='7' font-family='monospace'>@" + sSupp + "cm</text>" +
+        "<text x='160' y='20' fill='#94a3b8' font-size='7' font-family='monospace'>@" + sMid + "cm</text>" +
+        "<text x='270' y='20' fill='#fca5a5' font-size='7' font-family='monospace'>@" + sSupp + "cm</text>" +
+        "<text x='160' y='80' fill='#cbd5e1' font-size='8' font-family='monospace' text-anchor='middle'>Panjang Balok Bersih L: " + span.toFixed(1) + "m</text>";
+    }
+
+    function renderPlots(qu, span, condition, muSupp, muMid, vu) {
+      var bmd = document.getElementById('svg-bmd');
+      var sfd = document.getElementById('svg-sfd');
+      var bmdPath = condition === 'sederhana' ? "M 20,50 Q 110,85 200,50" : "M 20,35 Q 110,80 200,35";
+      bmd.innerHTML = "<line x1='15' y1='50' x2='205' y2='50' stroke='#475569' stroke-width='1' stroke-dasharray='3,3' />" +
+        "<path d='" + bmdPath + "' fill='none' stroke='#f97316' stroke-width='2.5' />" +
+        "<text x='25' y='45' fill='#fca5a5' font-size='7' font-family='monospace'>-" + muSupp.toFixed(1) + " kNm</text>" +
+        "<text x='110' y='78' fill='#a7f3d0' font-size='7' font-family='monospace' text-anchor='middle'>+" + muMid.toFixed(1) + " kNm</text>";
+      var sfdPath = condition === 'sederhana' ? "M 20,25 L 110,50 L 200,75" : "M 20,20 L 40,25 L 110,50 L 180,75 L 200,80";
+      sfd.innerHTML = "<line x1='15' y1='50' x2='205' y2='50' stroke='#475569' stroke-width='1' stroke-dasharray='3,3' />" +
+        "<path d='" + sfdPath + "' fill='none' stroke='#ef4444' stroke-width='2' />" +
+        "<text x='25' y='18' fill='#fca5a5' font-size='7' font-family='monospace'>+" + vu.toFixed(1) + " kN</text>" +
+        "<text x='175' y='88' fill='#fca5a5' font-size='7' font-family='monospace'>-" + vu.toFixed(1) + " kN</text>";
+    }
+
+    function printMathDetail(b, height, span, qD, qL, qu, muSupp, muMid, vu, AsTop, aTop, phiMnTop, AsBot, aBot, phiMnBot, fc, fyMain, Vc, phiVn, totalVn) {
+      var div = document.getElementById('math-content');
+      var topStatus = phiMnTop >= muSupp ? "<span style='color:#34d399;font-weight:bold'>✅ OK (Aman)</span>" : "<span style='color:#f87171;font-weight:bold'>❌ GAGAL (Tumpuan Overloaded)</span>";
+      var botStatus = phiMnBot >= muMid ? "<span style='color:#34d399;font-weight:bold'>✅ OK (Aman)</span>" : "<span style='color:#f87171;font-weight:bold'>❌ GAGAL (Lapangan Overloaded)</span>";
+      var shearStatus = phiVn >= vu ? "<span style='color:#34d399;font-weight:bold'>✅ OK (Sengkang Aman)</span>" : "<span style='color:#f87171;font-weight:bold'>❌ GAGAL (Sengkang Retak)</span>";
+      div.innerHTML = "<div><p style='color:#94a3b8;font-weight:bold'>// 1. Kombinasi Pembebanan Balok:</p><ul style='padding-left:20px;margin-top:4px;'><li>Beban Mati Nominal qD = <strong>" + qD.toFixed(3) + " kN/m</strong></li><li>Beban Hidup Nominal qL = <strong>" + qL.toFixed(3) + " kN/m</strong></li><li style='color:#fb923c'>Total Beban Terfaktor qu = 1.2*qD + 1.6*qL = <strong>" + qu.toFixed(3) + " kN/m</strong></li></ul></div>" +
+        "<div style='border-top:1px solid #1e293b;padding-top:12px'><p style='color:#94a3b8;font-weight:bold'>// 2. Momen Mekanika Struktur:</p><ul style='padding-left:20px;margin-top:4px;'><li>Tumpuan M_u (-) = <strong>" + muSupp.toFixed(3) + " kNm</strong></li><li>Lapangan M_u (+) = <strong>" + muMid.toFixed(3) + " kNm</strong></li><li>Beban Geser Maksimum V_u = <strong>" + vu.toFixed(2) + " kN</strong></li></ul></div>" +
+        "<div style='border-top:1px solid #1e293b;padding-top:12px'><p style='color:#94a3b8;font-weight:bold'>// 3. Kapasitas Penampang (SNI 2847):</p><ul style='padding-left:20px;margin-top:4px;font-size:10px'><li>Area Besi Top Tumpuan As = <strong>" + AsTop.toFixed(1) + " mm²</strong> | a = <strong>" + aTop.toFixed(2) + " mm</strong></li><li>phi*Mn Tumpuan = <strong>" + phiMnTop.toFixed(2) + " kNm</strong> " + topStatus + "</li><br><li>Area Besi Bot Lapangan As = <strong>" + AsBot.toFixed(1) + " mm²</strong> | a = <strong>" + aBot.toFixed(2) + " mm</strong></li><li>phi*Mn Lapangan = <strong>" + phiMnBot.toFixed(2) + " kNm</strong> " + botStatus + "</li><br><li>V_c = <strong>" + Vc.toFixed(2) + " kN</strong> | phi*Vn = <strong>" + phiVn.toFixed(2) + " kN</strong> " + shearStatus + "</li></ul></div>";
+    }
+  </script>
+</body>
+</html>
